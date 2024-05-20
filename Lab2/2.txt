@@ -1,0 +1,508 @@
+using _RSAEncryptor;
+
+
+//const string openTextFilePath = "..\\..\\..\\..\\openText.txt";
+//const string encryptedTextFilePath = "..\\..\\..\\..\\encryptedText.txt";
+//const string openKeyFilePath = "..\\..\\..\\..\\openKey.txt"
+//const string closeKeyFilePath = "..\\..\\..\\..\\closeKey.txt"
+//const string keysDirPath = "..\\..\\..\\..\\";
+//const string decryptedTextFilePath = "..\\..\\..\\..\\decryptedText.txt";
+
+public class Alphabet
+{
+    public static Dictionary<char, int> abc = new Dictionary<char, int>()
+    {
+        { 'а', 11 }, { 'б', 12 }, { 'в', 13 },
+        { 'г', 14 }, { 'д', 15 }, { 'е', 16 },
+        { 'ё', 17 }, { 'ж', 18 }, { 'з', 19 },
+        { 'и', 21 }, { 'й', 22 }, { 'к', 23 },
+        { 'л', 24 }, { 'м', 25 }, { 'н', 26 },
+        { 'о', 27 }, { 'п', 28 }, { 'р', 29 },
+        { 'с', 31 }, { 'т', 32 }, { 'у', 33 },
+        { 'ф', 34 }, { 'х', 35 }, { 'ц', 36 },
+        { 'ч', 37 }, { 'ш', 38 }, { 'щ', 39 },
+        { 'ъ', 41 }, { 'ы', 42 }, { 'ь', 43 },
+        { 'э', 44 }, { 'ю', 45 }, { 'я', 46 },
+        { '1', 47 }, { '2', 48 }, { '3', 49 },
+        { '4', 51 }, { '5', 52 }, { '6', 53 },
+        { '7', 54 }, { '8', 55 }, { '9', 56 },
+        { '0', 57 }, { '.', 58 }, { '-', 59 },
+        { ',', 61 }, { '!', 62 }, { '?', 63 },
+        { ':', 64 }, { ';', 65 }, { ' ', 66 }
+    };
+}
+
+
+string cmd = "";
+string openTextFilePath, encryptedTextFilePath, keysDirPath, decryptedTextFilePath;
+long q, p;
+
+while (true)
+{
+    Console.Write("enter command (encrypt, decrypt, cls, exit, generate): ");
+    cmd = Console.ReadLine().Trim();
+
+    switch (cmd)
+    {
+        case "generate":
+            {
+                Console.WriteLine("q, p: ");
+                string qp = Console.ReadLine();
+                string[] _qp = qp.Split(' ');
+                q = long.Parse(_qp[0]);
+                p = long.Parse(_qp[1]);
+                if (q == p)
+                {
+                    Console.WriteLine("q must not be equal to p");
+                    break;
+                }
+                long e, d, n;
+                try { 
+                (e, d, n) = RSA.GenerateKeys(q, p);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                    break;
+                }
+
+                while (true) { 
+                Console.Write("save keys? (y/n): ");
+
+                    string save_keys_answ = Console.ReadLine().Trim().ToLower();
+                    if (save_keys_answ == "y")
+                    {
+                        save_open_key:
+                        Console.WriteLine("open key file path: ");
+                        string open_key_file_path = Console.ReadLine();
+            
+                        try
+                        {
+                            string _openKey = $"{e} {n}";
+                            File.WriteAllText(open_key_file_path, _openKey);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine(ex.Message);
+                            goto save_open_key;
+                        }
+
+                    save_close_key:
+                        Console.WriteLine("close key file path: ");
+                        string close_key_file_path = Console.ReadLine();
+
+                        try
+                        {
+                            string _closeKey = $"{d} {n}";
+                            File.WriteAllText(close_key_file_path, _closeKey);
+                        }
+                        catch (Exception Ex)
+                        {
+                            Console.WriteLine(Ex.Message);
+                            goto save_close_key;
+                        }
+                    }
+                    else if (save_keys_answ == "n")
+                    {
+                        break;
+                    }
+                    break;
+                }
+                break;
+            }
+        case "encrypt":
+            {
+                Console.Write("open text file path: ");
+                openTextFilePath = Console.ReadLine();
+
+                Console.WriteLine("encrypted text file path: ");
+                encryptedTextFilePath = Console.ReadLine();
+
+                Console.WriteLine("open key file path: ");
+                string openKeyFilePath = Console.ReadLine();
+
+                try { 
+                RSA.Encrypt(openTextFilePath, encryptedTextFilePath, openKeyFilePath);
+                }
+                catch(Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                    break;
+                }
+
+                break;
+            }
+        case "decrypt":
+            {
+                Console.WriteLine("encrypted text file path: ");
+                encryptedTextFilePath = Console.ReadLine();
+
+                Console.WriteLine("decrypted text file path: ");
+                decryptedTextFilePath = Console.ReadLine();
+
+                Console.WriteLine("close key file path: ");
+                string closeKeyFilePath = Console.ReadLine();
+
+                try { 
+                RSA.Decrypt(encryptedTextFilePath, decryptedTextFilePath, closeKeyFilePath);
+                }
+                catch(Exception ex) {
+                    Console.WriteLine(ex.Message);
+                    break;
+                }
+
+                break;
+            }
+        case "cls":
+            {
+                System.Console.Clear();
+                break;
+            }
+        case "exit":
+            {
+                return;
+            }
+    }
+}
+////////////////////////////////////////////////////
+
+using LCD;
+using Mod;
+using Soloway;
+using System.Text;
+
+namespace _RSAEncryptor
+{
+    public class RSA
+    {
+        private long? q = null, p = null;
+
+        public RSA(long q, long p) { 
+            this.q = q; 
+            this.p = p;
+        }
+
+        public RSA() { }
+
+        public static (long e, long d, long n) GenerateKeys(long q, long p)
+        {
+            if (!SolowayTest.Test((long)p, 10) || !SolowayTest.Test((long)q, 10))
+            {
+                throw new ArgumentException("q or p was not a prime number");
+            }
+
+            long n = (long)p * (long)q;
+            long phi = (long)(p - 1) * (long)(q - 1);
+
+            long d = 2;
+
+            long? e = null;
+            Random rand = new Random();
+            while (e == null) { 
+            e = rand.NextInt64(3, n);
+            while((LCD.LCD.GetLCD((long)e, phi) != 1))
+            {
+                e++;
+                if (e < phi)
+                    {
+                        e = null;
+                        break;
+                    }
+            }
+            }
+            Console.WriteLine($"E = {e}, phi = {phi}");
+
+            while (true)
+            {
+                if (((e * d) % phi == 1) && (e != d))
+                {
+                    break;
+                }
+                else
+                {
+                    d++;
+                }
+            }
+            Console.WriteLine($"D = {d}");
+            return ((long)e, d, n);
+        }
+
+        public static (long e, long d, long n) ReadKeysFromFile(string openKeyPath, string closeKeyPath)
+        {
+            string openKeyText = File.ReadAllText(openKeyPath);
+            string[] openKey = openKeyText.Split(" ");
+            string closeKeyText = File.ReadAllText(closeKeyPath);
+            string[] closeKey = closeKeyText.Split(" ");
+
+            if (openKey[1] != closeKey[1])
+            {
+                throw new Exception("n != n");
+            }
+
+            return (long.Parse(openKey[0]), long.Parse(closeKey[0]), long.Parse(closeKey[1]));
+        }
+
+        public static void Encrypt(string filePath, string encryptedFilePath, string openKeyFilePath)
+        {
+            string openKeyText = File.ReadAllText(openKeyFilePath);
+
+            string[] openKey = openKeyText.Split(" ");
+            long e = long.Parse(openKey[0]);
+            long n = long.Parse(openKey[1]);
+
+            if (!File.Exists(filePath))
+            {
+                throw new Exception("file doesn't exist");
+            }
+
+            string fileText = File.ReadAllText(filePath).ToLower();
+            fileText = string.Join("", fileText.Where(s => Alphabet.abc.Keys.Contains(s)));
+
+            Console.WriteLine($"TEXT = {fileText}");
+
+            StringBuilder encodedText = new StringBuilder();
+
+            foreach(var symb in fileText)
+            {
+                encodedText.Append(Alphabet.abc[symb]);
+            }
+
+            Console.WriteLine(encodedText.ToString());
+            int encodedTextLength = encodedText.Length;
+
+            List<long> cis = new List<long>();
+
+            for(int i = 0; i < encodedTextLength; i++)
+            {
+                long mi = (long)char.GetNumericValue(encodedText[i]);
+                {
+                    for(int j = i+1;  j < encodedTextLength; j++)
+                    {
+                        if((mi * 10 + (long)char.GetNumericValue(encodedText[j])) < n)
+                        {
+                            mi *= 10;
+                            mi += (long)char.GetNumericValue(encodedText[j]);
+                            i++;
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+                }
+                long ci = ModFunction.GetMod(mi, e, n);
+
+                Console.WriteLine($"mi = {mi}, pow {e}, mod {n} = {ci}");
+
+                cis.Add(ci);
+            }
+
+            string encryptedText = string.Join(" ", cis);
+            File.WriteAllText(encryptedFilePath, encryptedText);
+        }
+
+        public static void Decrypt(string encryptedFilePath, string decryptedFilePath, string closeKeyFilePath)
+        {
+
+            string closeKeyText = File.ReadAllText(closeKeyFilePath);
+            string[] closeKey = closeKeyText.Split(" ");
+            long d = long.Parse(closeKey[0]);
+            long n = long.Parse(closeKey[1]);
+
+            string encryptedText = File.ReadAllText(encryptedFilePath);
+            List<long> cis = encryptedText.Split(" ").Select(ci => long.Parse(ci)).ToList();
+
+            StringBuilder encodedText = new StringBuilder();
+            List<char> decodedText = new List<char>();
+
+            foreach(long ci in cis) {
+                long mi = ModFunction.GetMod(ci, d, n);
+                encodedText.Append(mi.ToString());
+            }
+
+            for(int i = 0; i < encodedText.Length-1; i+=2)
+            {
+                int code = (int)char.GetNumericValue(encodedText[i]) * 10 + (int)char.GetNumericValue(encodedText[i + 1]);
+                Console.WriteLine($"CODE: {code}");
+                char symb = Alphabet.abc.Keys.First(k => Alphabet.abc[k] == code);
+                decodedText.Add(symb);
+            }
+
+            string decryptedText = string.Join("", decodedText);
+
+            File.WriteAllText(decryptedFilePath, decryptedText);
+        }
+
+    }
+}
+
+/////////////////////////////////////////////
+
+namespace LCD
+{
+    public class LCD
+    {
+        public static long GetLCD(long a, long b)
+        {
+            long temp = 0;
+            if (a > b)
+            {
+                temp = a;
+                a = b;
+                b = temp;
+            }
+
+            long resLcd = 1;
+
+            for (long i = a; i >= 2; i--)
+            {
+                if (a % i == 0 && b % i == 0)
+                {
+                    resLcd = i;
+                    break;
+                }
+            }
+            return resLcd;
+        }
+    }
+}
+
+////////////////////////////////////////////////
+
+namespace Mod
+{
+    public class ModFunction
+    {
+        public static long GetMod(long _base, long exp, long mod)
+        {
+            long x = 1;
+            long y = _base;
+
+            while (exp > 0)
+            {
+                if 
+                    ((exp & 1) == 1)
+                    x = (x * y) % mod;
+
+                y = (y * y) % mod;
+                exp = exp / 2;
+
+            }
+            return x % mod;
+        }
+    }
+}
+
+/////////////////////////////////////////////////////
+
+using LCD;
+using Mod;
+
+namespace Soloway
+{
+    public class SolowayTest
+    {
+        public static bool Test(long n, int k)
+        {
+            if (n == 2)
+            {
+                return true;
+            }
+            if (n < 2)
+            {
+                return false;
+            }
+            if (n != 2 && n % 2 == 0) {
+                return false;
+            }
+
+            Random rand = new Random();
+
+            for (int i = 0; i < k; i++)
+            {
+                long a = rand.NextInt64(2, n);
+                long jacobi = (n + Jacobi.Jacobi.GetJacobi(a, n)) % n;
+                long mod = ModFunction.GetMod(a, (n - 1) / 2, n);
+                if (jacobi == 0 || mod != jacobi)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+    }
+}
+
+/////////////////////////////////////////////////
+
+namespace Jacobi
+{
+    public class Jacobi
+    {
+        public static long GetJacobi(long a, long b)
+        {
+            if (b <= 0 || b % 2 == 0)
+            {
+                return 0;
+            }
+
+            long result = 1;
+
+            if (a < 0)
+            {
+                a *= -1;
+                if (b % 4 == 3)
+                {
+                    result *= -1;
+                }
+            }
+            if (a == 1)
+            {
+                return result;
+            }
+
+            while (a != 0)
+            {
+                if (a < 0)
+                {
+                    a *= -1;
+                    if (b % 4 == 3)
+                    {
+                        result *= -1;
+                    }
+                }
+
+                while (a % 2 == 0)
+                {
+                    a /= 2;
+                    if (b % 8 == 3 || b % 8 == 5)
+                    {
+                        result *= -1;
+                    }
+                }
+
+                long temp = a;
+                a = b;
+                b = temp;
+
+                if (a % 4 == 3 && b % 4 == 3)
+                {
+                    result *= -1;
+                }
+
+                a %= b;
+
+                if (a > b / 2)
+                {
+                    a -= b;
+                }
+            }
+            if (b == 1)
+            {
+                return result;
+            }
+            return 0;
+        }
+    }
+}
